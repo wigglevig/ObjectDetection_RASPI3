@@ -91,13 +91,6 @@ This project was built following the concepts proposed in the IEEE paper:
 > **Obstacle Detection System for the Visually Impaired using Deep Learning and Audio Feedback**  
 > Presented at the DICCT Conference, 2024  
 > DOI: [10.1109/DICCT61038.2024.10533162](https://doi.org/10.1109/DICCT61038.2024.10533162)
-
----
-
-## 📸 Screenshots & Demos
-
-> *(Add demo videos or images here if possible)*
-
 ---
 
 ## 🤝 Contributions
