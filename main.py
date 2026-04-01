@@ -27,13 +27,13 @@ def speak(q):
             time.sleep(0.1)  # To avoid busy waiting and to give delay
             
 queue = Queue()
-t = Thread(target=speak, args=(queue,), daemon=True)
+t = Thread(target=speak, args=(queue,))
 t.start()
 
-def calculate_distance(box, frame_width, class_avg_sizes, names):
+def calculate_distance(box, frame_width, class_avg_sizes):
     object_width = box.xyxy[0, 2].item() - box.xyxy[0, 0].item()
 
-    label = names[box.cls[0].item()]
+    label = result.names[box.cls[0].item()]
 
     if label in class_avg_sizes:
         object_width *= class_avg_sizes[label]["width_ratio"]
@@ -52,12 +52,10 @@ def get_position(frame_width, box):
 
 
 def blur_person(image, box):
-    x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
-    h = y2 - y1
-    top_region = image[y1:y1+int(0.08 * h), x1:x2]
-    if top_region.size > 0:
-        blurred_top_region = cv2.GaussianBlur(top_region, (15, 15), 0)
-        image[y1:y1+int(0.08 * h), x1:x2] = blurred_top_region
+    x, y, w, h = box.xyxy[0].cpu().numpy().astype(int)
+    top_region = image[y:y+int(0.08 * h), x:x+w]
+    blurred_top_region = cv2.GaussianBlur(top_region, (15, 15), 0)
+    image[y:y+int(0.08 *h), x:x+w] = blurred_top_region
     return image
 
 
@@ -81,8 +79,6 @@ pause = False
 while cap.isOpened():
     if not pause:
         ret, frame = cap.read()
-        if not ret:
-            break
         results = model.predict(frame)
         result = results[0]
         nearest_object = None
@@ -99,7 +95,7 @@ while cap.isOpened():
 
             thickness = 2
 
-            distance = calculate_distance(box, frame.shape[1], class_avg_sizes, result.names) #box, frame_width, class_avg_sizes, names
+            distance = calculate_distance(box, frame.shape[1], class_avg_sizes) #box, frame_width, class_avg_sizes
 
             if distance < min_distance:
                 min_distance = distance
