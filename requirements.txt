@@ -2,3 +2,4 @@ pyttsx3>=2.90
 ultralytics>=8.0.195
 opencv-python>=4.8.0
 numpy>=1.26.0
+# Note: For Raspberry Pi, ensure espeak and libgl1 are installed via setup_rpi.sh
