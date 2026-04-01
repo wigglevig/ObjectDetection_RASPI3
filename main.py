@@ -7,7 +7,6 @@ import numpy as np
 import time
 
 
-
 def speak(q):
     engine = pyttsx3.init()
     engine.setProperty('rate', 235)
@@ -28,13 +27,13 @@ def speak(q):
             time.sleep(0.1)  # To avoid busy waiting and to give delay
             
 queue = Queue()
-t = Thread(target=speak, args=(queue,))
+t = Thread(target=speak, args=(queue,), daemon=True)
 t.start()
 
-def calculate_distance(box, frame_width, class_avg_sizes):
+def calculate_distance(box, frame_width, class_avg_sizes, names):
     object_width = box.xyxy[0, 2].item() - box.xyxy[0, 0].item()
 
-    label = result.names[box.cls[0].item()]
+    label = names[box.cls[0].item()]
 
     if label in class_avg_sizes:
         object_width *= class_avg_sizes[label]["width_ratio"]
@@ -53,15 +52,17 @@ def get_position(frame_width, box):
 
 
 def blur_person(image, box):
-    x, y, w, h = box.xyxy[0].cpu().numpy().astype(int)
-    top_region = image[y:y+int(0.08 * h), x:x+w]
-    blurred_top_region = cv2.GaussianBlur(top_region, (15, 15), 0)
-    image[y:y+int(0.08 *h), x:x+w] = blurred_top_region
+    x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
+    h = y2 - y1
+    top_region = image[y1:y1+int(0.08 * h), x1:x2]
+    if top_region.size > 0:
+        blurred_top_region = cv2.GaussianBlur(top_region, (15, 15), 0)
+        image[y1:y1+int(0.08 * h), x1:x2] = blurred_top_region
     return image
 
 
 model = YOLO("gpModel.pt")
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture("test_video.mp4")  
 
 class_avg_sizes = {
     "person": {"width_ratio": 2.5},
@@ -70,7 +71,7 @@ class_avg_sizes = {
     "motorcycle": {"width_ratio": 2.4},
     "bus": {"width_ratio": 0.3},
     "traffic light": {"width_ratio": 2.95},
-    "stop sign": {"width    _ratio": 2.55},
+    "stop sign": {"width_ratio": 2.55},
     "bench": {"width_ratio": 1.6},
     "cat": {"width_ratio": 1.9},
     "dog": {"width_ratio": 1.5},
@@ -80,6 +81,8 @@ pause = False
 while cap.isOpened():
     if not pause:
         ret, frame = cap.read()
+        if not ret:
+            break
         results = model.predict(frame)
         result = results[0]
         nearest_object = None
@@ -96,7 +99,7 @@ while cap.isOpened():
 
             thickness = 2
 
-            distance = calculate_distance(box, frame.shape[1], class_avg_sizes) #box, frame_width, class_avg_sizes
+            distance = calculate_distance(box, frame.shape[1], class_avg_sizes, result.names) #box, frame_width, class_avg_sizes, names
 
             if distance < min_distance:
                 min_distance = distance
