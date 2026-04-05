@@ -14,10 +14,10 @@ def speak(q):
             # IF IT SAYS A INT NUMBER, IT REMOVES THE .0 PART. IT SAYS DIRECTLY 2 INSTEAD OF 2.0.
             rounded_distance_str = str(int(rounded_distance)) if rounded_distance.is_integer() else str(rounded_distance)
             
-            if label in class_avg_sizes:
-                text = f"{label} IS {rounded_distance_str} METERS ON {position}"
-                # espeak directly works around the pyttsx3 libespeak 524 ALSA error
-                os.system(f'espeak -s 150 "{text}"')
+            # REMOVED "if label in class_avg_sizes:" constraint so ALL 600 objects are announced!
+            text = f"{label} IS {rounded_distance_str} METERS ON {position}"
+            # espeak directly works around the pyttsx3 libespeak 524 ALSA error
+            os.system(f'espeak -s 150 "{text}"')
                 
             with queue.mutex:
                 queue.queue.clear()
@@ -29,8 +29,6 @@ def speak(q):
 class VideoStream:
     """Threaded video stream to eliminate camera lag by getting only the latest frame."""
     def __init__(self, src=0, resolution=(640, 480)):
-        # src=0 defaults to the live camera on the Pi.
-        # Change this to "test_video.mp4" if you want to test on video file instead!
         self.stream = cv2.VideoCapture(src)
         self.stream.set(cv2.CAP_PROP_FRAME_WIDTH, resolution[0])
         self.stream.set(cv2.CAP_PROP_FRAME_HEIGHT, resolution[1])
@@ -112,6 +110,8 @@ def calculate_distance(box, frame_width, class_avg_sizes, result):
 
     if label in class_avg_sizes:
         object_width *= class_avg_sizes[label]["width_ratio"]
+    else:
+        object_width *= 1.5 # Generic fallback ratio for any of the other 590 objects
 
     distance = (frame_width * 0.5) / np.tan(np.radians(70 / 2)) / (object_width + 1e-6)
     return round(distance, 2)
@@ -132,14 +132,15 @@ def blur_person(image, box):
     return image
 
 
-model = YOLO("gpModel.pt")
+# 600 Classes - OpenImages V7
+model = YOLO("yolov8n-oiv7.pt")
 
-if os.path.exists("gpModel_ncnn_model"):
+if os.path.exists("yolov8n-oiv7_ncnn_model"):
     print("Using super fast NCNN optimized model!")
-    model = YOLO("gpModel_ncnn_model")
+    model = YOLO("yolov8n-oiv7_ncnn_model")
 else:
     print("Note: To optimize further on Raspberry Pi, you can export to NCNN:")
-    print("      Run this command in terminal: yolo export format=ncnn model=gpModel.pt")
+    print("      Run this command in terminal: yolo export format=ncnn model=yolov8n-oiv7.pt")
 
 cap = VideoStream(0).start()
 
@@ -218,18 +219,17 @@ while cap.isOpened():
                     cv2.rectangle(frame, (cords[0], cords[1]), (cords[2], cords[3]), colorYellow, thickness)
                     cv2.putText(frame, f"{label} - {distance:.1f}m", (cords[0], cords[1] - 10), cv2.FONT_HERSHEY_SIMPLEX,
                                 0.5, colorYellow, thickness)
-             
-                elif label in class_avg_sizes:
+                else: # Fallback for all other 590 objects
                     cv2.rectangle(frame, (cords[0], cords[1]), (cords[2], cords[3]), colorBlue, thickness)
                     cv2.putText(frame, f"{label} - {distance:.1f}m", (cords[0], cords[1] - 10), cv2.FONT_HERSHEY_SIMPLEX,
                                 0.5, colorBlue, thickness)
 
             if nearest_object:
-                if nearest_object[0] in class_avg_sizes:  
-                    cv2.rectangle(frame, (nearest_object[2][0], nearest_object[2][1]),(nearest_object[2][2], nearest_object[2][3]), (0, 0, 255), thickness)
-                    text = f"{nearest_object[0]} - {round(nearest_object[1], 1)}m"
-                    cv2.putText(frame, text, (nearest_object[2][0], nearest_object[2][1] - 10), cv2.FONT_HERSHEY_SIMPLEX,
-                                0.5, colorRed, thickness)
+                # Always draw nearest object in red, no matter the class! 
+                cv2.rectangle(frame, (nearest_object[2][0], nearest_object[2][1]),(nearest_object[2][2], nearest_object[2][3]), (0, 0, 255), thickness)
+                text = f"{nearest_object[0]} - {round(nearest_object[1], 1)}m"
+                cv2.putText(frame, text, (nearest_object[2][0], nearest_object[2][1] - 10), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.5, colorRed, thickness)
 
                 if nearest_object[1] <= 12.5:  
                     position = get_position(frame.shape[1], nearest_object[2])
