@@ -6,21 +6,21 @@ import cv2
 import numpy as np
 import time
 
+import os
 
 def speak(q):
-    engine = pyttsx3.init()
-    engine.setProperty('rate', 235)
-    engine.setProperty('volume', 1.0)
-
     while True:
         if not q.empty():
             label, distance, position = q.get()
             rounded_distance = round(distance * 2) / 2  # Round to integer or in steps of 0.5
             # IF IT SAYS A INT NUMBER, IT REMOVES THE .0 PART. IT SAYS DIRECTLY 2 INSTEAD OF 2.0.
             rounded_distance_str = str(int(rounded_distance)) if rounded_distance.is_integer() else str(rounded_distance)
+            
             if label in class_avg_sizes:
-                engine.say(f"{label} IS {rounded_distance_str} METERS ON {position}")
-                engine.runAndWait()
+                text = f"{label} IS {rounded_distance_str} METERS ON {position}"
+                # espeak directly works around the pyttsx3 libespeak 524 ALSA error
+                os.system(f'espeak -s 150 "{text}"')
+                
             with queue.mutex:
                 queue.queue.clear()
         else:
